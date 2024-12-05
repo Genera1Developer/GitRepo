@@ -133,12 +133,13 @@
         }
 
         // Function to fetch the files from the repository
-        async function fetchRepoFiles(owner, repo) {
-            const apiUrl = `https://api.github.com/repos/${owner}/${repo}/contents`;
+        async function fetchRepoFiles(owner, repo, path = '') {
+            const apiUrl = `https://api.github.com/repos/${owner}/${repo}/contents/${path}`;
             const response = await fetch(apiUrl);
             if (!response.ok) {
+                console.error('Failed to fetch repository data', response);
                 alert('Failed to fetch repository data');
-                return;
+                return [];
             }
             const files = await response.json();
             return files;
@@ -183,9 +184,13 @@
 
         // Handle clicking on a folder to load its contents
         async function handleFolderClick(folder, parentElement) {
-            const files = await fetchRepoFiles(folder.owner, folder.repo);
-            const folderContents = files.filter(file => file.path.startsWith(folder.path));
-            renderFileTree(folderContents, parentElement);
+            const path = folder.path;
+            const files = await fetchRepoFiles(folder.owner, folder.repo, path);
+            if (files && files.length > 0) {
+                renderFileTree(files, parentElement);
+            } else {
+                parentElement.innerHTML = 'This folder is empty or could not be loaded.';
+            }
         }
 
         // Function to format file sizes in a human-readable format
