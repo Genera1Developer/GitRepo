@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>F.09.WR</title>
+    <style>
+        /* Basic styling for the UI */
+        body {
+            font-family: Arial, sans-serif;
+        }
+        #repo-search-container {
+            padding: 10px;
+            text-align: center;
+        }
+        #file-tree {
+            margin-top: 20px;
+            margin-left: 20px;
+        }
+        .folder, .file {
+            cursor: pointer;
+        }
+        .folder {
+            font-weight: bold;
+            color: blue;
+        }
+        .file {
+            padding-left: 20px;
+        }
+        .file-size, .file-download {
+            padding-left: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div id="repo-search-container">
+        <input type="text" id="repo-url" placeholder="Enter GitHub repo URL" />
+        <button id="open-repo-btn">Open Repository</button>
+    </div>
+    
+    <div id="file-tree"></div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+    <script>
+        // Function to parse GitHub repo URL to get the repo name and owner
+        function parseRepoUrl(url) {
+            const regex = /github\.com\/([^/]+)\/([^/]+)/;
+            const match = url.match(regex);
+            if (match) {
+                return {
+                    owner: match[1],
+                    repo: match[2]
+                };
+            } else {
+                alert('Invalid GitHub repository URL');
+                return null;
+            }
+        }
+
+        // Function to fetch the files from the repository
+        async function fetchRepoFiles(owner, repo) {
+            const apiUrl = `https://api.github.com/repos/${owner}/${repo}/contents`;
+            const response = await fetch(apiUrl);
+            if (!response.ok) {
+                alert('Failed to fetch repository data');
+                return;
+            }
+            const files = await response.json();
+            return files;
+        }
+
+        // Function to display the files/folders in a clickable structure
+        function renderFileTree(files, parentElement) {
+            parentElement.innerHTML = ''; // Clear any existing content
+
+            files.forEach(file => {
+                const fileElement = document.createElement('div');
+                if (file.type === 'dir') {
+                    fileElement.classList.add('folder');
+                    fileElement.innerText = file.name;
+                    fileElement.onclick = () => handleFolderClick(file, parentElement);
+                } else if (file.type === 'file') {
+                    fileElement.classList.add('file');
+                    fileElement.innerText = `${file.name} (${formatBytes(file.size)})`;
+                    const downloadLink = document.createElement('a');
+                    downloadLink.href = file.download_url;
+                    downloadLink.innerText = 'Download';
+                    downloadLink.target = '_blank';
+                    const sizeElement = document.createElement('span');
+                    sizeElement.classList.add('file-size');
+                    sizeElement.innerText = `Size: ${formatBytes(file.size)}`;
+                    const downloadElement = document.createElement('span');
+                    downloadElement.classList.add('file-download');
+                    downloadElement.appendChild(downloadLink);
+
+                    fileElement.appendChild(sizeElement);
+                    fileElement.appendChild(downloadElement);
+                }
+                parentElement.appendChild(fileElement);
+            });
+        }
+
+        // Handle clicking on a folder (load the folder contents)
+        async function handleFolderClick(folder, parentElement) {
+            const files = await fetchRepoFiles(folder.owner, folder.repo);
+            const folderContents = files.filter(file => file.path.startsWith(folder.path));
+            renderFileTree(folderContents, parentElement);
+        }
+
+        // Function to format file sizes in a human-readable format
+        function formatBytes(bytes) {
+            if (bytes === 0) return '0 B';
+            const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(1024));
+            return (bytes / Math.pow(1024, i)).toFixed(2) + ' ' + sizes[i];
+        }
+
+        // Function to open the repository and load files
+        async function openRepo() {
+            const repoUrl = document.getElementById('repo-url').value;
+            const repoData = parseRepoUrl(repoUrl);
+            if (!repoData) return;
+
+            const { owner, repo } = repoData;
+            const files = await fetchRepoFiles(owner, repo);
+            if (files) {
+                renderFileTree(files, document.getElementById('file-tree'));
+            }
+        }
+
+        // Add event listener to the "Open Repository" button
+        document.getElementById('open-repo-btn').addEventListener('click', openRepo);
+    </script>
+</body>
+</html>
